@@ -25,23 +25,23 @@ EXTENSIONS_DIR="/opt/vscode-extensions"
 CONFIG_DIR="/home/$USERNAME/.config/code-server"
 CONFIG_FILE="$CONFIG_DIR/config.yaml"
 
+RUNTIME_DIR="/home/$USERNAME/.local/share/code-server"
+CACHE_DIR="/home/$USERNAME/.cache/code-server"
+
 # ================================
-# Shared extensions directory
+# Shared extensions (read-only)
 # ================================
 mkdir -p "$EXTENSIONS_DIR"
 chown root:root "$EXTENSIONS_DIR"
 chmod 755 "$EXTENSIONS_DIR"
 
 # ================================
-# Config directory (root-owned)
+# Config directory (root write)
 # ================================
 mkdir -p "$CONFIG_DIR"
 chown root:"$USERNAME" "$CONFIG_DIR"
 chmod 755 "$CONFIG_DIR"
 
-# ================================
-# Config file (root write, user read)
-# ================================
 cat > "$CONFIG_FILE" <<EOF
 bind-addr: 0.0.0.0:$PORT
 auth: password
@@ -54,6 +54,18 @@ EOF
 
 chown root:"$USERNAME" "$CONFIG_FILE"
 chmod 640 "$CONFIG_FILE"
+
+# ================================
+# Runtime directories (user write)
+# ================================
+mkdir -p "$RUNTIME_DIR" "$CACHE_DIR"
+chown -R "$USERNAME:$USERNAME" \
+  "/home/$USERNAME/.local" \
+  "/home/$USERNAME/.cache"
+
+chmod -R 700 \
+  "/home/$USERNAME/.local" \
+  "/home/$USERNAME/.cache"
 
 # ================================
 # systemd service
@@ -81,13 +93,16 @@ RestrictNamespaces=yes
 RestrictSUIDSGID=yes
 LockPersonality=yes
 
-# ✅ ALLOWED PATHS
-ReadWritePaths=/home/$USERNAME
+# ✅ WRITE ONLY WHERE REQUIRED
+ReadWritePaths=/home/$USERNAME \
+               /home/$USERNAME/.local \
+               /home/$USERNAME/.cache
+
 ReadOnlyPaths=/opt/vscode-extensions
 
 Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-# 🚀 START (auto-reads ~/.config/code-server/config.yaml)
+# 🚀 START
 ExecStart=/usr/bin/code-server /home/$USERNAME
 
 Restart=always
@@ -107,5 +122,5 @@ systemctl enable "code-server@$USERNAME"
 systemctl restart "code-server@$USERNAME"
 
 echo "✅ Code-server running for $USERNAME on port $PORT"
-echo "🔒 Config: $CONFIG_FILE"
-echo "👤 User = read-only | 👑 Root = full access"
+echo "🔒 Config locked: $CONFIG_FILE"
+echo "👤 User = read-only config | 👑 Root = full control"

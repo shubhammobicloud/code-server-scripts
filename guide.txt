@@ -15,3 +15,7 @@ chmod +x create-user.sh setup-code-server.sh
 systemctl status code-server@dev1
 * Logs can be checked with:
 journalctl -u code-server@dev1 -f
+
+
+*Logs
+journalctl -u code-server@devuser -n 20
