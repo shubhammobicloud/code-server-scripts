@@ -1,0 +1,9 @@
+cd ~/code-server-scripts
+chmod +x create-user.sh setup-code-server.sh
+
+
+./create-user.sh dev1
+./setup-code-server.sh dev1 8080
+systemctl status code-server@dev1
+* Logs can be checked with:
+journalctl -u code-server@dev1 -f
