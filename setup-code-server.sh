@@ -1,8 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-USERNAME="$1"
-PORT="$2"
+USERNAME="${1:-}"
+PORT="${2:-}"
 
 if [[ -z "$USERNAME" || -z "$PORT" ]]; then
   echo "Usage: $0 <username> <port>"
@@ -15,19 +15,26 @@ echo
 
 SERVICE_FILE="/etc/systemd/system/code-server@$USERNAME.service"
 EXTENSIONS_DIR="/opt/vscode-extensions"
-CONFIG_DIR="/home/$USERNAME/.config/code-server"
-CONFIG_FILE="$CONFIG_DIR/config.yaml"
+CONFIG_DIR="/etc/code-server"
+CONFIG_FILE="$CONFIG_DIR/$USERNAME.yaml"
 
-# Create extensions directory
-mkdir -p "$EXTENSIONS_DIR"
-chmod 755 "$EXTENSIONS_DIR"
+# Ensure user exists
+if ! id "$USERNAME" &>/dev/null; then
+  echo "❌ User $USERNAME does not exist"
+  exit 1
+fi
 
-# Create config directory as root (dev user cannot modify)
+# Create admin-only config directory
 mkdir -p "$CONFIG_DIR"
 chown root:root "$CONFIG_DIR"
 chmod 755 "$CONFIG_DIR"
 
-# Create config.yaml as root
+# Create extensions directory (shared, read-only)
+mkdir -p "$EXTENSIONS_DIR"
+chown root:root "$EXTENSIONS_DIR"
+chmod 755 "$EXTENSIONS_DIR"
+
+# Create config file (admin-only)
 tee "$CONFIG_FILE" > /dev/null <<EOF
 bind-addr: 0.0.0.0:$PORT
 auth: password
@@ -38,12 +45,11 @@ extensions-dir: $EXTENSIONS_DIR
 cert: false
 EOF
 
-# Lock config file permissions (admin only)
 chown root:root "$CONFIG_FILE"
 chmod 600 "$CONFIG_FILE"
 
 # Create systemd service
-cat <<EOF > "$SERVICE_FILE"
+cat > "$SERVICE_FILE" <<EOF
 [Unit]
 Description=Code Server for $USERNAME
 After=network.target
@@ -53,7 +59,7 @@ Type=simple
 User=$USERNAME
 Group=$USERNAME
 
-# 🔒 SANDBOX OPTIONS
+# 🔒 HARDENING
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict
@@ -66,13 +72,16 @@ RestrictNamespaces=yes
 RestrictSUIDSGID=yes
 LockPersonality=yes
 
-# ✅ FILESYSTEM ACCESS
+# ✅ ALLOW WORKSPACE ONLY
 ReadWritePaths=/home/$USERNAME
-ReadOnlyPaths=/usr/bin/code-server /usr/lib /lib /lib64
+ReadOnlyPaths=/etc/code-server /opt/vscode-extensions
+
 Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-# 🚀 START CODE SERVER
-ExecStart=/usr/bin/code-server /home/$USERNAME
+# 🚀 START CODE SERVER WITH ADMIN CONFIG
+ExecStart=/usr/bin/code-server \
+  --config /etc/code-server/$USERNAME.yaml \
+  /home/$USERNAME
 
 Restart=always
 RestartSec=3
@@ -81,13 +90,12 @@ RestartSec=3
 WantedBy=multi-user.target
 EOF
 
-# Permissions for systemd service
 chmod 644 "$SERVICE_FILE"
 
-# Reload systemd, enable and start
+# Reload and start
 systemctl daemon-reload
 systemctl enable "code-server@$USERNAME"
-systemctl start "code-server@$USERNAME"
+systemctl restart "code-server@$USERNAME"
 
-echo "Code-server started for $USERNAME on port $PORT with internet access"
-echo "Config file is admin-only (read-only for $USERNAME)"
+echo "✅ Code-server running for $USERNAME on port $PORT"
+echo "🔒 Config locked at $CONFIG_FILE (admin-only)"
