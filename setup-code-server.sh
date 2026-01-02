@@ -9,13 +9,28 @@ if [[ -z "$USERNAME" || -z "$PORT" ]]; then
   exit 1
 fi
 
+# ================================
 # Ensure user exists
+# ================================
 if ! id "$USERNAME" &>/dev/null; then
   echo "❌ User $USERNAME does not exist"
   exit 1
 fi
 
+# ================================
+# Ensure user has valid shell
+# ================================
+USER_SHELL="$(getent passwd "$USERNAME" | cut -d: -f7)"
+
+if [[ "$USER_SHELL" == "/usr/sbin/nologin" || "$USER_SHELL" == "/bin/false" ]]; then
+  echo "⚠️  User $USERNAME has shell '$USER_SHELL'"
+  echo "🔧 Fixing shell to /bin/bash (required for code-server)"
+  usermod -s /bin/bash "$USERNAME"
+fi
+
+# ================================
 # Ask for code-server password
+# ================================
 read -s -p "Enter code-server password for $USERNAME: " CODE_PASSWORD
 echo
 
@@ -59,6 +74,7 @@ chmod 640 "$CONFIG_FILE"
 # Runtime directories (user write)
 # ================================
 mkdir -p "$RUNTIME_DIR" "$CACHE_DIR"
+
 chown -R "$USERNAME:$USERNAME" \
   "/home/$USERNAME/.local" \
   "/home/$USERNAME/.cache"
