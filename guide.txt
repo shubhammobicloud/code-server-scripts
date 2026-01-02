@@ -1,9 +1,17 @@
+* List only normal (human) users
+ awk -F: '$3>=1000 {print $1}' /etc/passwd
+
+* Delete the test user first
+sudo pkill -9 -u dev1
+sudo userdel -r dev1
+
+
 cd ~/code-server-scripts
 chmod +x create-user.sh setup-code-server.sh
 
 
 ./create-user.sh dev1
-./setup-code-server.sh dev1 8080
+./setup-code-server.sh dev1 8081
 systemctl status code-server@dev1
 * Logs can be checked with:
 journalctl -u code-server@dev1 -f

@@ -1,7 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-USERNAME="$1"
 LOG_DIR="/opt/dev-env/logs"
 LOG_FILE="$LOG_DIR/actions.log"
 
@@ -11,19 +10,20 @@ if [[ ! -d "$LOG_DIR" ]]; then
   chmod 755 "$LOG_DIR"
 fi
 
-# ===== BASIC VALIDATION =====
+# ===== GET USERNAME =====
+USERNAME="${1:-}"
+
+# Prompt if not passed as argument
 if [[ -z "$USERNAME" ]]; then
-  echo "Usage: create-user.sh <username>"
-  exit 1
+  read -p "Enter username to create: " USERNAME
 fi
 
-# Block root explicitly
+# ===== BASIC VALIDATION =====
 if [[ "$USERNAME" == "root" ]]; then
   echo "Cannot create root user"
   exit 1
 fi
 
-# Username format
 if [[ ! "$USERNAME" =~ ^[a-z0-9_]{3,16}$ ]]; then
   echo "Invalid username. Use 3–16 chars: a-z, 0-9, _"
   exit 1
@@ -31,8 +31,18 @@ fi
 
 # ===== CHECK EXISTENCE =====
 if id "$USERNAME" &>/dev/null; then
-  echo "User already exists"
-  exit 1
+  read -p "User $USERNAME already exists. Do you want to delete and recreate? (y/N): " CONFIRM
+  if [[ "$CONFIRM" =~ ^[Yy]$ ]]; then
+    # Stop any services for this user first
+    systemctl stop "code-server@$USERNAME" 2>/dev/null || true
+    systemctl disable "code-server@$USERNAME" 2>/dev/null || true
+    pkill -9 -u "$USERNAME" 2>/dev/null || true
+    userdel -r "$USERNAME"
+    echo "Old user $USERNAME removed."
+  else
+    echo "Exiting without creating user."
+    exit 0
+  fi
 fi
 
 # ===== CREATE USER (NO LOGIN SHELL) =====
