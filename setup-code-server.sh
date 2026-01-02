@@ -26,21 +26,21 @@ CONFIG_DIR="/home/$USERNAME/.config/code-server"
 CONFIG_FILE="$CONFIG_DIR/config.yaml"
 
 # ================================
-# Create shared extensions dir
+# Shared extensions directory
 # ================================
 mkdir -p "$EXTENSIONS_DIR"
 chown root:root "$EXTENSIONS_DIR"
 chmod 755 "$EXTENSIONS_DIR"
 
 # ================================
-# Create config directory (root-owned)
+# Config directory (root-owned)
 # ================================
 mkdir -p "$CONFIG_DIR"
 chown root:"$USERNAME" "$CONFIG_DIR"
 chmod 755 "$CONFIG_DIR"
 
 # ================================
-# Create config.yaml (root-owned, user-readable)
+# Config file (root write, user read)
 # ================================
 cat > "$CONFIG_FILE" <<EOF
 bind-addr: 0.0.0.0:$PORT
@@ -56,7 +56,7 @@ chown root:"$USERNAME" "$CONFIG_FILE"
 chmod 640 "$CONFIG_FILE"
 
 # ================================
-# Create systemd service
+# systemd service
 # ================================
 cat > "$SERVICE_FILE" <<EOF
 [Unit]
@@ -72,7 +72,7 @@ Group=$USERNAME
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict
-ProtectHome=yes
+ProtectHome=read-only
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
 ProtectControlGroups=yes
@@ -81,13 +81,13 @@ RestrictNamespaces=yes
 RestrictSUIDSGID=yes
 LockPersonality=yes
 
-# ✅ ALLOW REQUIRED PATHS
+# ✅ ALLOWED PATHS
 ReadWritePaths=/home/$USERNAME
 ReadOnlyPaths=/opt/vscode-extensions
 
 Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-# 🚀 START CODE-SERVER (uses ~/.config automatically)
+# 🚀 START (auto-reads ~/.config/code-server/config.yaml)
 ExecStart=/usr/bin/code-server /home/$USERNAME
 
 Restart=always
@@ -107,5 +107,5 @@ systemctl enable "code-server@$USERNAME"
 systemctl restart "code-server@$USERNAME"
 
 echo "✅ Code-server running for $USERNAME on port $PORT"
-echo "🔒 Config locked at $CONFIG_FILE"
-echo "👤 User can READ config, only root can MODIFY"
+echo "🔒 Config: $CONFIG_FILE"
+echo "👤 User = read-only | 👑 Root = full access"
