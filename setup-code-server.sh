@@ -43,7 +43,7 @@ RestrictRealtime=yes
 RestrictNamespaces=yes
 RestrictSUIDSGID=yes
 LockPersonality=yes
-MemoryDenyWriteExecute=yes
+#MemoryDenyWriteExecute=yes
 
 # ✅ FILESYSTEM ACCESS
 ReadWritePaths=/home/$USERNAME
