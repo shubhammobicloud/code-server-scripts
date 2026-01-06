@@ -35,6 +35,7 @@ echo "⚠️  This will permanently delete:"
 echo "   - User: $USERNAME"
 echo "   - Home directory"
 echo "   - code-server service"
+echo "   - Git wrapper and alias"
 echo "   - All configs & limits"
 echo
 read -p "Type the username to confirm deletion: " CONFIRM
@@ -45,7 +46,7 @@ if [[ "$CONFIRM" != "$USERNAME" ]]; then
 fi
 
 # ================================
-# STOP & REMOVE SERVICE
+# STOP & REMOVE CODE-SERVER SERVICE
 # ================================
 SERVICE="code-server@$USERNAME"
 
@@ -64,6 +65,8 @@ pkill -9 -u "$USERNAME" 2>/dev/null || true
 rm -rf "/home/$USERNAME/.config/code-server"
 rm -rf "/home/$USERNAME/.local/share/code-server"
 rm -rf "/home/$USERNAME/.cache/code-server"
+rm -rf "/home/$USERNAME/.code-server-data"
+rm -rf "/home/$USERNAME/Projects"
 
 # ================================
 # REMOVE LIMITS
@@ -75,6 +78,19 @@ rm -f "/etc/security/limits.d/dev-env-$USERNAME.conf"
 # ================================
 sed -i "/^$USERNAME$/d" /etc/cron.deny
 sed -i "/^$USERNAME$/d" /etc/at.deny
+
+# ================================
+# REMOVE GIT WRAPPER & ALIAS
+# ================================
+WRAPPER_BIN="/usr/local/bin/git-$USERNAME"
+if [[ -f "$WRAPPER_BIN" ]]; then
+    rm -f "$WRAPPER_BIN"
+fi
+
+PROFILE_FILE="/home/$USERNAME/.bashrc"
+if [[ -f "$PROFILE_FILE" ]]; then
+    sed -i "/alias git=.*git-$USERNAME/d" "$PROFILE_FILE"
+fi
 
 # ================================
 # DELETE USER & HOME

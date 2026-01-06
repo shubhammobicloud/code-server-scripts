@@ -8,7 +8,7 @@ awk -F: '$3>=1000 {print $1}' /etc/passwd
 
 
 cd ~/code-server-scripts
-chmod +x create-user.sh setup-code-server.sh delete-user.sh
+chmod +x create-user.sh setup-code-server.sh delete-user.sh git-setup.sh
 
 
 ./create-user.sh dev1
@@ -20,3 +20,9 @@ journalctl -u code-server@dev1 -f
 
 *Logs
 journalctl -u code-server@devuser -n 20
+
+
+* Deletes the per-user git wrapper binary:
+rm -f /usr/local/bin/git-$USERNAME
+*Removes the git alias from the user’s .bashrc:
+sed -i "/alias git=.*git-$USERNAME/d" /home/$USERNAME/.bashrc
