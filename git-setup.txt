@@ -1,0 +1,22 @@
+1️⃣ Create the wrapper directory
+sudo mkdir -p /opt/code-git-wrapper
+sudo chown root:root /opt/code-git-wrapper
+sudo chmod 755 /opt/code-git-wrapper
+2️⃣ Create the git wrapper (THIS IS THE KEY PART)
+sudo nano /opt/code-git-wrapper/git
+3️⃣ Make it executable
+sudo chmod 755 /opt/code-git-wrapper/git
+sudo chown root:root /opt/code-git-wrapper/git
+
+
+1️⃣ Edit the systemd service
+sudo nano /etc/systemd/system/code-server@mahesh.service
+2️⃣ Replace the Environment=PATH=... line
+Environment=PATH=/opt/code-git-wrapper:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+3️⃣ Reload systemd properly (mandatory)
+sudo systemctl daemon-reexec
+sudo systemctl daemon-reload
+sudo systemctl restart code-server@mahesh
+🧪 VERIFY (inside VS Code terminal)
+which git
+/opt/code-git-wrapper/git
