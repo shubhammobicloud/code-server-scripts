@@ -137,6 +137,16 @@ BindPaths=$BLOCKER_BIN:/usr/bin/ncat
 BindPaths=$BLOCKER_BIN:/usr/bin/ftp
 BindPaths=$BLOCKER_BIN:/usr/bin/sftp
 BindPaths=$BLOCKER_BIN:/usr/bin/telnet
+BindPaths=$BLOCKER_BIN:/usr/bin/ssh
+BindPaths=$BLOCKER_BIN:/usr/bin/ping
+BindPaths=$BLOCKER_BIN:/usr/bin/traceroute
+BindPaths=$BLOCKER_BIN:/usr/bin/dig
+BindPaths=$BLOCKER_BIN:/usr/bin/nslookup
+BindPaths=$BLOCKER_BIN:/usr/bin/mount
+BindPaths=$BLOCKER_BIN:/usr/bin/umount
+BindPaths=$BLOCKER_BIN:/usr/bin/su
+BindPaths=$BLOCKER_BIN:/usr/bin/sudo
+BindPaths=$BLOCKER_BIN:/usr/bin/chown
 
 Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
@@ -163,4 +173,4 @@ systemctl restart "code-server@$USERNAME"
 
 echo "✅ code-server running for $USERNAME on port $PORT"
 echo "📁 Workspace: $PROJECTS_DIR"
-echo "🚫 curl/wget/scp/rsync blocked (service-only)"
+echo "🚫 Dangerous binaries blocked for this service (ssh, curl, wget, scp, rsync, ping, etc.)"
