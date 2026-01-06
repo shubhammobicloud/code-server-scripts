@@ -20,3 +20,25 @@ sudo systemctl restart code-server@mahesh
 🧪 VERIFY (inside VS Code terminal)
 which git
 /opt/code-git-wrapper/git
+
+
+-------------------
+✅ Step 1: Create a sudoers include file (BEST PRACTICE)
+sudo visudo -f /etc/sudoers.d/code-git-wrapper
+✅ Step 2: Add this exact content
+🔒 Allow only the wrapper, nothing else
+# Allow specific users to run git wrapper as root
+Cmnd_Alias GIT_WRAPPER = /opt/code-git-wrapper/git *
+mahesh ALL=(root) NOPASSWD: GIT_WRAPPER
+-----------------
+ ****insteed above changed wrapper
+✅ Correct (works with NoNewPrivileges)
+exec env GIT_SSH_COMMAND="ssh -i $SSH_KEY -o StrictHostKeyChecking=no" /usr/bin/git "$@"
+✅ Correct (works with NoNewPrivileges)
+sudo chown root:gitssh /etc/git-ssh/deploy_key
+sudo chmod 440 /etc/git-ssh/deploy_key
+sudo usermod -aG gitssh mahesh
+✔ User can read key
+✔ Cannot modify key
+✔ No sudo needed
+✔ Fully secure
