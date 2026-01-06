@@ -35,22 +35,21 @@ CONFIG_FILE="$CONFIG_DIR/config.yaml"
 EXT_DIR="/opt/vscode-extensions"
 EXTENSIONS_JSON="$EXT_DIR/extensions.json"
 
-RUNTIME_DIR="$HOME_DIR/.local/share/code-server"
-CACHE_DIR="$HOME_DIR/.cache/code-server"
+BLOCKER_DIR="/opt/bin-blocker"
+BLOCKER_BIN="$BLOCKER_DIR/blocked"
 
 # ================================
-# PROJECTS DIR (USER WORKSPACE)
+# CREATE PROJECTS DIR
 # ================================
 mkdir -p "$PROJECTS_DIR"
 chown "$USERNAME:$USERNAME" "$PROJECTS_DIR"
 chmod 700 "$PROJECTS_DIR"
 
 # ================================
-# SHARED EXTENSIONS (ROOT OWNED)
+# SHARED EXTENSIONS (READ-ONLY)
 # ================================
 mkdir -p "$EXT_DIR"
 touch "$EXTENSIONS_JSON"
-
 chown -R root:root "$EXT_DIR"
 chmod 755 "$EXT_DIR"
 chmod 644 "$EXTENSIONS_JSON"
@@ -83,17 +82,18 @@ chown root:"$USERNAME" "$CONFIG_FILE"
 chmod 640 "$CONFIG_FILE"
 
 # ================================
-# RUNTIME DIRS (USER WRITABLE)
+# CREATE BLOCKER BINARY
 # ================================
-mkdir -p "$RUNTIME_DIR" "$CACHE_DIR"
+mkdir -p "$BLOCKER_DIR"
 
-chown -R "$USERNAME:$USERNAME" \
-  "$HOME_DIR/.local" \
-  "$HOME_DIR/.cache"
+cat > "$BLOCKER_BIN" <<'EOF'
+#!/bin/bash
+echo "❌ This command is disabled in this development environment."
+exit 1
+EOF
 
-chmod -R 700 \
-  "$HOME_DIR/.local" \
-  "$HOME_DIR/.cache"
+chmod 755 "$BLOCKER_BIN"
+chown root:root "$BLOCKER_BIN"
 
 # ================================
 # SYSTEMD SERVICE
@@ -108,7 +108,7 @@ Type=simple
 User=$USERNAME
 Group=$USERNAME
 
-# 🔐 SECURITY HARDENING
+# 🔐 HARDENING
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict
@@ -121,17 +121,26 @@ RestrictNamespaces=yes
 RestrictSUIDSGID=yes
 LockPersonality=yes
 
-# ✅ WRITE ACCESS ONLY WHERE NEEDED
-ReadWritePaths=$PROJECTS_DIR \
-               $USER_DATA_DIR \
-               $HOME_DIR/.local \
-               $HOME_DIR/.cache
+# ✅ WRITE ACCESS
+ReadWritePaths=$PROJECTS_DIR $USER_DATA_DIR
 
+# 🔒 SHARED EXTENSIONS
 ReadOnlyPaths=$EXT_DIR
+
+# 🚫 BLOCK DANGEROUS BINARIES (SERVICE ONLY)
+BindPaths=$BLOCKER_BIN:/usr/bin/curl
+BindPaths=$BLOCKER_BIN:/usr/bin/wget
+BindPaths=$BLOCKER_BIN:/usr/bin/scp
+BindPaths=$BLOCKER_BIN:/usr/bin/rsync
+BindPaths=$BLOCKER_BIN:/usr/bin/nc
+BindPaths=$BLOCKER_BIN:/usr/bin/ncat
+BindPaths=$BLOCKER_BIN:/usr/bin/ftp
+BindPaths=$BLOCKER_BIN:/usr/bin/sftp
+BindPaths=$BLOCKER_BIN:/usr/bin/telnet
 
 Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-# 🚀 START
+# 🚀 START (OPEN PROJECTS ONLY)
 ExecStart=/usr/bin/code-server \
   --user-data-dir=$USER_DATA_DIR \
   $PROJECTS_DIR
@@ -154,5 +163,4 @@ systemctl restart "code-server@$USERNAME"
 
 echo "✅ code-server running for $USERNAME on port $PORT"
 echo "📁 Workspace: $PROJECTS_DIR"
-echo "⚙️  User settings: $USER_DATA_DIR"
-echo "🧩 Shared extensions: $EXT_DIR"
+echo "🚫 curl/wget/scp/rsync blocked (service-only)"

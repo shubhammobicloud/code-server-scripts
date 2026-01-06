@@ -1,5 +1,5 @@
 * List only normal (human) users
- awk -F: '$3>=1000 {print $1}' /etc/passwd
+awk -F: '$3>=1000 {print $1}' /etc/passwd
 
 * Delete the test user first
 ./delete-user.sh
