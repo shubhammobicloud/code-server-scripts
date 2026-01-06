@@ -93,6 +93,30 @@ if [[ -f "$PROFILE_FILE" ]]; then
 fi
 
 # ================================
+# REMOVE GIT WRAPPER & ACCESS
+# ================================
+
+WRAPPER_BIN="/usr/local/bin/git-wrappers/git-$USERNAME"
+SUDOERS_FILE="/etc/sudoers.d/git-wrapper-$USERNAME"
+PROFILE_FILE="/home/$USERNAME/.bashrc"
+
+# Remove git wrapper binary
+rm -f "$WRAPPER_BIN"
+
+# Remove sudoers rule (if exists)
+# rm -f "$SUDOERS_FILE"
+
+# Remove ACL restriction on real git
+# setfacl -x u:"$USERNAME" /usr/bin/git 2>/dev/null || true
+
+# Remove git alias from bashrc
+# if [[ -f "$PROFILE_FILE" ]]; then
+#   sed -i "/alias git='sudo \/usr\/local\/bin\/git-wrappers\/git-$USERNAME'/d" "$PROFILE_FILE"
+# fi
+
+
+
+# ================================
 # DELETE USER & HOME
 # ================================
 userdel -r "$USERNAME"

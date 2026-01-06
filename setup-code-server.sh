@@ -98,10 +98,10 @@ chown root:root "$BLOCKER_BIN"
 # ================================
 # BLOCK GIT FOR THIS USER ONLY
 # ================================
-GIT_BIN="$(which git)"
-if [[ -f "$GIT_BIN" ]]; then
-  setfacl -m u:"$USERNAME":--- "$GIT_BIN"
-fi
+# GIT_BIN="$(which git)"
+# if [[ -f "$GIT_BIN" ]]; then
+#   setfacl -m u:"$USERNAME":--- "$GIT_BIN"
+# fi
 
 # ================================
 # SYSTEMD SERVICE

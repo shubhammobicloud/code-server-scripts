@@ -109,16 +109,16 @@ chown root:root "$WRAPPER_BIN"
 # ================================
 # BLOCK REAL GIT FOR THIS USER
 # ================================
-setfacl -m u:"$USERNAME":--- /usr/bin/git
+# setfacl -m u:"$USERNAME":--- /usr/bin/git
 
 # ================================
 # ADD SUDOERS RULE (WRAPPER ONLY)
 # ================================
-cat > "$SUDOERS_FILE" <<EOF
-$USERNAME ALL=(root) NOPASSWD: $WRAPPER_BIN
-EOF
+# cat > "$SUDOERS_FILE" <<EOF
+# $USERNAME ALL=(root) NOPASSWD: $WRAPPER_BIN
+# EOF
 
-chmod 440 "$SUDOERS_FILE"
+# chmod 440 "$SUDOERS_FILE"
 
 # ================================
 # ADD ALIAS FOR USER
