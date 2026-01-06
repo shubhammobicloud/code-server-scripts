@@ -31,6 +31,7 @@ sudo visudo -f /etc/sudoers.d/code-git-wrapper
 Cmnd_Alias GIT_WRAPPER = /opt/code-git-wrapper/git *
 mahesh ALL=(root) NOPASSWD: GIT_WRAPPER
 -----------------
+
  ****insteed above changed wrapper
 ✅ Correct (works with NoNewPrivileges)
 exec env GIT_SSH_COMMAND="ssh -i $SSH_KEY -o StrictHostKeyChecking=no" /usr/bin/git "$@"
