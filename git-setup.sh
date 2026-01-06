@@ -17,23 +17,25 @@ fi
 # PATHS
 # ================================
 WRAPPER_DIR="/usr/local/bin/git-wrappers"
-USER_WRAPPER="$WRAPPER_DIR/git-$USERNAME"
-GLOBAL_GIT_SHIM="/usr/local/bin/git"
+WRAPPER_BIN="$WRAPPER_DIR/git-$USERNAME"
+SUDOERS_FILE="/etc/sudoers.d/git-wrapper-$USERNAME"
 SSH_KEY="/etc/git-ssh/deploy_key"
+USER_HOME="/home/$USERNAME"
+PROFILE_FILE="$USER_HOME/.bashrc"
 
 # ================================
-# CREATE WRAPPER DIR
+# CREATE WRAPPER DIRECTORY
 # ================================
 mkdir -p "$WRAPPER_DIR"
 chown root:root "$WRAPPER_DIR"
 chmod 755 "$WRAPPER_DIR"
 
 # ================================
-# CREATE PER-USER WRAPPER
+# CREATE GIT WRAPPER
 # ================================
-cat > "$USER_WRAPPER" <<EOF
+cat > "$WRAPPER_BIN" <<EOF
 #!/bin/bash
-set -e
+# Git wrapper for user $USERNAME (controlled)
 
 SSH_KEY="$SSH_KEY"
 TARGET_USER="$USERNAME"
@@ -59,7 +61,7 @@ is_http_allowed() {
   return 1
 }
 
-# Block non-whitelisted HTTP URLs
+# Block non-whitelisted HTTP/HTTPS repos
 for ARG in "\$@"; do
   if [[ "\$ARG" == http://* || "\$ARG" == https://* ]]; then
     if ! is_http_allowed "\$ARG"; then
@@ -70,8 +72,8 @@ for ARG in "\$@"; do
   fi
 done
 
-# Command allowlist
-if [[ ! " \${ALLOWED_CMDS[*]} " =~ " \$CMD " ]]; then
+# Allowed commands only
+if [[ ! " \${ALLOWED_CMDS[@]} " =~ " \$CMD " ]]; then
   echo "❌ git command '\$CMD' is not allowed"
   exit 1
 fi
@@ -79,12 +81,16 @@ fi
 # Restrict git config
 if [[ "\$CMD" == "config" ]]; then
   case "\$2" in
-    user.name|user.email) ;;
-    --global)
-      [[ "\$3" == "user.name" || "\$3" == "user.email" || ( "\$3" == "--add" && "\$4" == "safe.directory" ) ]] || {
+    "user.name"|"user.email") ;;
+    "--global")
+      if [[ "\$3" == "user.name" || "\$3" == "user.email" ]]; then
+        true
+      elif [[ "\$3" == "--add" && "\$4" == "safe.directory" ]]; then
+        true
+      else
         echo "❌ Only user.name, user.email, safe.directory allowed"
         exit 1
-      }
+      fi
       ;;
     *)
       echo "❌ Only user.name, user.email, safe.directory allowed"
@@ -93,39 +99,40 @@ if [[ "\$CMD" == "config" ]]; then
   esac
 fi
 
-# Execute git as root with SSH key
-sudo -u root env \
-  GIT_SSH_COMMAND="ssh -i \$SSH_KEY -o StrictHostKeyChecking=no" \
-  /usr/bin/git "\$@"
-
-# Fix ownership after clone
-if [[ "\$CMD" == "clone" ]]; then
-  CLONE_DIR="\${3:-\$(basename "\$2" .git)}"
-  chown -R "\$TARGET_USER:\$TARGET_GROUP" "\$PWD/\$CLONE_DIR"
-fi
+# Execute real git as root using server SSH key
+/usr/bin/git "\$@" </dev/null
 EOF
 
-chmod 755 "$USER_WRAPPER"
-chown root:root "$USER_WRAPPER"
+chmod 755 "$WRAPPER_BIN"
+chown root:root "$WRAPPER_BIN"
 
 # ================================
-# CREATE GLOBAL GIT SHIM (ONCE)
+# BLOCK REAL GIT FOR THIS USER
 # ================================
-if [[ ! -f "$GLOBAL_GIT_SHIM" ]]; then
-  cat > "$GLOBAL_GIT_SHIM" <<'EOF'
-#!/bin/bash
-exec sudo /usr/local/bin/git-wrappers/git-$USER "$@"
+setfacl -m u:"$USERNAME":--- /usr/bin/git
+
+# ================================
+# ADD SUDOERS RULE (WRAPPER ONLY)
+# ================================
+cat > "$SUDOERS_FILE" <<EOF
+$USERNAME ALL=(root) NOPASSWD: $WRAPPER_BIN
 EOF
 
-  chmod 755 "$GLOBAL_GIT_SHIM"
-  chown root:root "$GLOBAL_GIT_SHIM"
+chmod 440 "$SUDOERS_FILE"
+
+# ================================
+# ADD ALIAS FOR USER
+# ================================
+if ! grep -q "alias git=" "$PROFILE_FILE" 2>/dev/null; then
+  echo "alias git='sudo $WRAPPER_BIN'" >> "$PROFILE_FILE"
 fi
 
-# ================================
-# BLOCK SYSTEM GIT FOR USERS
-# ================================
-chmod 700 /usr/bin/git
-chown root:root /usr/bin/git
+chown "$USERNAME:$USERNAME" "$PROFILE_FILE"
 
-echo "✅ Git wrapper installed for user: $USERNAME"
-echo "➡ git → /usr/local/bin/git → $USER_WRAPPER"
+# ================================
+# DONE
+# ================================
+echo "✅ Git wrapper installed for $USERNAME"
+echo "🔒 /usr/bin/git blocked for this user only"
+echo "🔑 Passwordless sudo enabled ONLY for wrapper"
+echo "➡️  User must re-login to apply alias"
