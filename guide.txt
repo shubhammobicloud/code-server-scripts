@@ -2,12 +2,13 @@
  awk -F: '$3>=1000 {print $1}' /etc/passwd
 
 * Delete the test user first
-sudo pkill -9 -u dev1
-sudo userdel -r dev1
+./delete-user.sh
+//sudo pkill -9 -u dev1
+//sudo userdel -r dev1
 
 
 cd ~/code-server-scripts
-chmod +x create-user.sh setup-code-server.sh
+chmod +x create-user.sh setup-code-server.sh delete-user.sh
 
 
 ./create-user.sh dev1

@@ -46,6 +46,15 @@ passwd -l "$USERNAME"
 chmod 700 "/home/$USERNAME"
 
 # ================================
+# CREATE PROJECTS DIRECTORY
+# ================================
+PROJECTS_DIR="/home/$USERNAME/Projects"
+
+mkdir -p "$PROJECTS_DIR"
+chown "$USERNAME:$USERNAME" "$PROJECTS_DIR"
+chmod 700 "$PROJECTS_DIR"
+
+# ================================
 # LOCK SSH COMPLETELY
 # ================================
 SSH_DIR="/home/$USERNAME/.ssh"

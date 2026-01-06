@@ -14,6 +14,13 @@ if ! id "$USERNAME" &>/dev/null; then
   exit 1
 fi
 
+PROJECTS_DIR="/home/$USERNAME/Projects"
+
+if [[ ! -d "$PROJECTS_DIR" ]]; then
+  echo "❌ Projects directory not found: $PROJECTS_DIR"
+  exit 1
+fi
+
 # ================================
 # PASSWORD INPUT
 # ================================
@@ -30,7 +37,7 @@ RUNTIME_DIR="/home/$USERNAME/.local/share/code-server"
 CACHE_DIR="/home/$USERNAME/.cache/code-server"
 
 # ================================
-# SHARED EXTENSIONS
+# SHARED EXTENSIONS (READ-ONLY)
 # ================================
 mkdir -p "$EXT_DIR"
 chown root:root "$EXT_DIR"
@@ -60,8 +67,16 @@ chmod 640 "$CONFIG_FILE"
 # RUNTIME DIRS (USER WRITABLE)
 # ================================
 mkdir -p "$RUNTIME_DIR" "$CACHE_DIR"
-chown -R "$USERNAME:$USERNAME" "/home/$USERNAME/.local" "/home/$USERNAME/.cache"
-chmod -R 700 "/home/$USERNAME/.local" "/home/$USERNAME/.cache"
+
+chown -R "$USERNAME:$USERNAME" \
+  "$PROJECTS_DIR" \
+  "/home/$USERNAME/.local" \
+  "/home/$USERNAME/.cache"
+
+chmod -R 700 \
+  "$PROJECTS_DIR" \
+  "/home/$USERNAME/.local" \
+  "/home/$USERNAME/.cache"
 
 # ================================
 # SYSTEMD SERVICE
@@ -76,6 +91,7 @@ User=$USERNAME
 Group=$USERNAME
 Type=simple
 
+# 🔒 HARDENING
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict
@@ -88,11 +104,18 @@ RestrictNamespaces=yes
 RestrictSUIDSGID=yes
 LockPersonality=yes
 
-ReadWritePaths=/home/$USERNAME /home/$USERNAME/.local /home/$USERNAME/.cache
+# ✅ WRITE ACCESS (STRICT)
+ReadWritePaths=$PROJECTS_DIR \
+               /home/$USERNAME/.local \
+               /home/$USERNAME/.cache
+
 ReadOnlyPaths=$EXT_DIR
 
 Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-ExecStart=/usr/bin/code-server /home/$USERNAME
+
+# 🚀 START IN PROJECTS DIRECTORY
+ExecStart=/usr/bin/code-server $PROJECTS_DIR
+
 Restart=always
 RestartSec=3
 
@@ -110,3 +133,4 @@ systemctl enable "code-server@$USERNAME"
 systemctl restart "code-server@$USERNAME"
 
 echo "✅ code-server running for $USERNAME on port $PORT"
+echo "📂 Workspace locked to: $PROJECTS_DIR"
