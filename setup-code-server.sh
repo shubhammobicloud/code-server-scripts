@@ -9,33 +9,19 @@ if [[ -z "$USERNAME" || -z "$PORT" ]]; then
   exit 1
 fi
 
-# ================================
-# Ensure user exists
-# ================================
 if ! id "$USERNAME" &>/dev/null; then
-  echo "❌ User $USERNAME does not exist"
+  echo "❌ User does not exist"
   exit 1
 fi
 
 # ================================
-# Ensure user has valid shell
+# PASSWORD INPUT
 # ================================
-USER_SHELL="$(getent passwd "$USERNAME" | cut -d: -f7)"
-
-if [[ "$USER_SHELL" == "/usr/sbin/nologin" || "$USER_SHELL" == "/bin/false" ]]; then
-  echo "⚠️  User $USERNAME has shell '$USER_SHELL'"
-  echo "🔧 Fixing shell to /bin/bash (required for code-server)"
-  usermod -s /bin/bash "$USERNAME"
-fi
-
-# ================================
-# Ask for code-server password
-# ================================
-read -s -p "Enter code-server password for $USERNAME: " CODE_PASSWORD
+read -s -p "Enter code-server password: " CODE_PASSWORD
 echo
 
 SERVICE_FILE="/etc/systemd/system/code-server@$USERNAME.service"
-EXTENSIONS_DIR="/opt/vscode-extensions"
+EXT_DIR="/opt/vscode-extensions"
 
 CONFIG_DIR="/home/$USERNAME/.config/code-server"
 CONFIG_FILE="$CONFIG_DIR/config.yaml"
@@ -44,14 +30,14 @@ RUNTIME_DIR="/home/$USERNAME/.local/share/code-server"
 CACHE_DIR="/home/$USERNAME/.cache/code-server"
 
 # ================================
-# Shared extensions (read-only)
+# SHARED EXTENSIONS
 # ================================
-mkdir -p "$EXTENSIONS_DIR"
-chown root:root "$EXTENSIONS_DIR"
-chmod 755 "$EXTENSIONS_DIR"
+mkdir -p "$EXT_DIR"
+chown root:root "$EXT_DIR"
+chmod 755 "$EXT_DIR"
 
 # ================================
-# Config directory (root write)
+# CONFIG (ROOT CONTROLLED)
 # ================================
 mkdir -p "$CONFIG_DIR"
 chown root:"$USERNAME" "$CONFIG_DIR"
@@ -63,7 +49,7 @@ auth: password
 password: $CODE_PASSWORD
 disable-file-downloads: true
 disable-file-uploads: true
-extensions-dir: $EXTENSIONS_DIR
+extensions-dir: $EXT_DIR
 cert: false
 EOF
 
@@ -71,20 +57,14 @@ chown root:"$USERNAME" "$CONFIG_FILE"
 chmod 640 "$CONFIG_FILE"
 
 # ================================
-# Runtime directories (user write)
+# RUNTIME DIRS (USER WRITABLE)
 # ================================
 mkdir -p "$RUNTIME_DIR" "$CACHE_DIR"
-
-chown -R "$USERNAME:$USERNAME" \
-  "/home/$USERNAME/.local" \
-  "/home/$USERNAME/.cache"
-
-chmod -R 700 \
-  "/home/$USERNAME/.local" \
-  "/home/$USERNAME/.cache"
+chown -R "$USERNAME:$USERNAME" "/home/$USERNAME/.local" "/home/$USERNAME/.cache"
+chmod -R 700 "/home/$USERNAME/.local" "/home/$USERNAME/.cache"
 
 # ================================
-# systemd service
+# SYSTEMD SERVICE
 # ================================
 cat > "$SERVICE_FILE" <<EOF
 [Unit]
@@ -92,11 +72,10 @@ Description=Code Server for $USERNAME
 After=network.target
 
 [Service]
-Type=simple
 User=$USERNAME
 Group=$USERNAME
+Type=simple
 
-# 🔒 HARDENING
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict
@@ -109,18 +88,11 @@ RestrictNamespaces=yes
 RestrictSUIDSGID=yes
 LockPersonality=yes
 
-# ✅ WRITE ONLY WHERE REQUIRED
-ReadWritePaths=/home/$USERNAME \
-               /home/$USERNAME/.local \
-               /home/$USERNAME/.cache
-
-ReadOnlyPaths=/opt/vscode-extensions
+ReadWritePaths=/home/$USERNAME /home/$USERNAME/.local /home/$USERNAME/.cache
+ReadOnlyPaths=$EXT_DIR
 
 Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-
-# 🚀 START
 ExecStart=/usr/bin/code-server /home/$USERNAME
-
 Restart=always
 RestartSec=3
 
@@ -131,12 +103,10 @@ EOF
 chmod 644 "$SERVICE_FILE"
 
 # ================================
-# Reload & start
+# START SERVICE
 # ================================
 systemctl daemon-reload
 systemctl enable "code-server@$USERNAME"
 systemctl restart "code-server@$USERNAME"
 
-echo "✅ Code-server running for $USERNAME on port $PORT"
-echo "🔒 Config locked: $CONFIG_FILE"
-echo "👤 User = read-only config | 👑 Root = full control"
+echo "✅ code-server running for $USERNAME on port $PORT"
