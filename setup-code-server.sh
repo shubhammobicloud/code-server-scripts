@@ -96,6 +96,14 @@ chmod 755 "$BLOCKER_BIN"
 chown root:root "$BLOCKER_BIN"
 
 # ================================
+# BLOCK GIT FOR THIS USER ONLY
+# ================================
+GIT_BIN="$(which git)"
+if [[ -f "$GIT_BIN" ]]; then
+  setfacl -m u:"$USERNAME":--- "$GIT_BIN"
+fi
+
+# ================================
 # SYSTEMD SERVICE
 # ================================
 cat > "$SERVICE_FILE" <<EOF
@@ -174,3 +182,4 @@ systemctl restart "code-server@$USERNAME"
 echo "✅ code-server running for $USERNAME on port $PORT"
 echo "📁 Workspace: $PROJECTS_DIR"
 echo "🚫 Dangerous binaries blocked for this service (ssh, curl, wget, scp, rsync, ping, etc.)"
+echo "🚫 Git is blocked for this user only"
