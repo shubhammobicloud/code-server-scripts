@@ -5,6 +5,7 @@ LOG_DIR="/opt/dev-env/logs"
 LOG_FILE="$LOG_DIR/actions.log"
 
 mkdir -p "$LOG_DIR"
+chown root:root "$LOG_DIR"
 chmod 755 "$LOG_DIR"
 
 USERNAME="${1:-}"
@@ -39,36 +40,35 @@ if id "$USERNAME" &>/dev/null; then
 fi
 
 # ================================
-# CREATE USER (SHELL ENABLED)
+# CREATE USER (SHELL ENABLED, LOGIN LOCKED)
 # ================================
 useradd -m -s /bin/bash "$USERNAME"
-passwd -l "$USERNAME"
+passwd -l "$USERNAME"   # disables password login
+chown "$USERNAME:$USERNAME" "/home/$USERNAME"
 chmod 700 "/home/$USERNAME"
 
 # ================================
-# CREATE PROJECTS DIRECTORY
+# PROJECTS DIRECTORY
 # ================================
 PROJECTS_DIR="/home/$USERNAME/Projects"
-
 mkdir -p "$PROJECTS_DIR"
 chown "$USERNAME:$USERNAME" "$PROJECTS_DIR"
 chmod 700 "$PROJECTS_DIR"
 
 # ================================
-# LOCK SSH COMPLETELY
+# LOCK SSH (READ-ONLY FOR USER)
 # ================================
 SSH_DIR="/home/$USERNAME/.ssh"
 mkdir -p "$SSH_DIR"
 chown root:root "$SSH_DIR"
-chmod 000 "$SSH_DIR"
+chmod 555 "$SSH_DIR"
 
 # ================================
-# LOCK SHELL PROFILE FILES
+# LOCK SHELL PROFILE FILES (READ-ONLY)
 # ================================
 for file in .bashrc .profile .bash_logout; do
   FILE="/home/$USERNAME/$file"
-  rm -f "$FILE"
-  touch "$FILE"
+  [[ -f "$FILE" ]] || touch "$FILE"
   chown root:root "$FILE"
   chmod 444 "$FILE"
 done
@@ -89,13 +89,12 @@ $USERNAME hard fsize 1048576
 EOF
 
 # ================================
-# SAFE UMASK
-# ================================
-grep -q "^UMASK 077" /etc/login.defs || echo "UMASK 077" >> /etc/login.defs
-
-# ================================
 # LOG
 # ================================
 echo "$(date '+%F %T') | CREATE_USER | $USERNAME" >> "$LOG_FILE"
 
-echo "✅ User '$USERNAME' created (shell enabled, fully restricted)"
+echo "✅ User '$USERNAME' created"
+echo "📁 Home directory writable by user"
+echo "🔒 .bashrc / .profile / .bash_logout read-only"
+echo "🔒 .ssh read-only"
+echo "🚫 Password login, cron, at disabled"
