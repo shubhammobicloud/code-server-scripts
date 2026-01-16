@@ -96,14 +96,6 @@ chmod 755 "$BLOCKER_BIN"
 chown root:root "$BLOCKER_BIN"
 
 # ================================
-# BLOCK GIT FOR THIS USER ONLY
-# ================================
-# GIT_BIN="$(which git)"
-# if [[ -f "$GIT_BIN" ]]; then
-#   setfacl -m u:"$USERNAME":--- "$GIT_BIN"
-# fi
-
-# ================================
 # SYSTEMD SERVICE
 # ================================
 cat > "$SERVICE_FILE" <<EOF
@@ -116,11 +108,12 @@ Type=simple
 User=$USERNAME
 Group=$USERNAME
 
+# =========================
 # 🔐 HARDENING
+# =========================
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict
-# ProtectHome=read-only
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
 ProtectControlGroups=yes
@@ -129,13 +122,27 @@ RestrictNamespaces=yes
 RestrictSUIDSGID=yes
 LockPersonality=yes
 
-# ✅ WRITE ACCESS
-ReadWritePaths=$PROJECTS_DIR $USER_DATA_DIR
+# =========================
+# ✅ HOME WRITE ACCESS
+# =========================
+ReadWritePaths=/home/$USERNAME
 
+# =========================
+# 🔒 READ-ONLY USER FILES
+# =========================
+ReadOnlyPaths=/home/$USERNAME/.bashrc
+ReadOnlyPaths=/home/$USERNAME/.profile
+ReadOnlyPaths=/home/$USERNAME/.bash_profile
+ReadOnlyPaths=/home/$USERNAME/.ssh
+
+# =========================
 # 🔒 SHARED EXTENSIONS
+# =========================
 ReadOnlyPaths=$EXT_DIR
 
-# 🚫 BLOCK NETWORK / DANGEROUS BINARIES
+# =========================
+# 🚫 BLOCK NETWORK & TOOLS
+# =========================
 BindPaths=$BLOCKER_BIN:/usr/bin/curl
 BindPaths=$BLOCKER_BIN:/usr/bin/wget
 BindPaths=$BLOCKER_BIN:/usr/bin/scp
@@ -154,7 +161,9 @@ BindPaths=$BLOCKER_BIN:/usr/bin/umount
 BindPaths=$BLOCKER_BIN:/usr/bin/su
 BindPaths=$BLOCKER_BIN:/usr/bin/chown
 
-# 🚫 FULL GIT BLOCK (CLI + VS CODE EXTENSION)
+# =========================
+# 🚫 FULL GIT BLOCK
+# =========================
 BindPaths=$BLOCKER_BIN:/usr/bin/git
 BindPaths=$BLOCKER_BIN:/usr/lib/git-core/git
 BindPaths=$BLOCKER_BIN:/usr/lib/git-core/git-remote-http
@@ -165,14 +174,16 @@ BindPaths=$BLOCKER_BIN:/usr/lib/git-core/git-fetch-pack
 BindPaths=$BLOCKER_BIN:/usr/lib/git-core/git-index-pack
 BindPaths=$BLOCKER_BIN:/usr/lib/git-core/git-pack-objects
 
-# 🚫 DISABLE VS CODE GIT EXTENSION
+# Disable VS Code Git integration
 Environment=VSCODE_DISABLE_GIT=1
 Environment=GIT_EXEC_PATH=/nonexistent
 Environment=GIT_CEILING_DIRECTORIES=/
 
 Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
+# =========================
 # 🚀 START
+# =========================
 ExecStart=/usr/bin/code-server \
   --user-data-dir=$USER_DATA_DIR \
   $PROJECTS_DIR
@@ -195,5 +206,5 @@ systemctl restart "code-server@$USERNAME"
 
 echo "✅ code-server running for $USERNAME on port $PORT"
 echo "📁 Workspace: $PROJECTS_DIR"
-echo "🚫 Git fully blocked (terminal + VS Code Git extension)"
-echo "🔐 Network & dangerous binaries blocked for this service"
+echo "🔐 Home writable, shell + SSH files read-only"
+echo "🚫 Git & network fully blocked"
