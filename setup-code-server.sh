@@ -27,30 +27,32 @@ SERVICE_FILE="/etc/systemd/system/code-server@$USERNAME.service"
 
 HOME_DIR="/home/$USERNAME"
 PROJECTS_DIR="$HOME_DIR/Projects"
+
 USER_DATA_DIR="$HOME_DIR/.code-server-data"
 CONFIG_DIR="$HOME_DIR/.config/code-server"
 CONFIG_FILE="$CONFIG_DIR/config.yaml"
 
 EXT_DIR="/opt/vscode-extensions"
+EXTENSIONS_JSON="$EXT_DIR/extensions.json"
+
 BLOCKER_DIR="/opt/bin-blocker"
 BLOCKER_BIN="$BLOCKER_DIR/blocked"
 
 # ================================
-# ENSURE USER FILES EXIST
-# ================================
-touch "$HOME_DIR/.bashrc" "$HOME_DIR/.profile"
-mkdir -p "$HOME_DIR/.ssh"
-
-chown root:root "$HOME_DIR/.bashrc" "$HOME_DIR/.profile" "$HOME_DIR/.ssh"
-chmod 644 "$HOME_DIR/.bashrc" "$HOME_DIR/.profile"
-chmod 755 "$HOME_DIR/.ssh"
-
-# ================================
-# PROJECTS DIR
+# CREATE PROJECTS DIR
 # ================================
 mkdir -p "$PROJECTS_DIR"
 chown "$USERNAME:$USERNAME" "$PROJECTS_DIR"
 chmod 700 "$PROJECTS_DIR"
+
+# ================================
+# SHARED EXTENSIONS (READ-ONLY)
+# ================================
+mkdir -p "$EXT_DIR"
+touch "$EXTENSIONS_JSON"
+chown -R root:root "$EXT_DIR"
+chmod 755 "$EXT_DIR"
+chmod 644 "$EXTENSIONS_JSON"
 
 # ================================
 # USER DATA DIR
@@ -58,13 +60,6 @@ chmod 700 "$PROJECTS_DIR"
 mkdir -p "$USER_DATA_DIR"
 chown "$USERNAME:$USERNAME" "$USER_DATA_DIR"
 chmod 700 "$USER_DATA_DIR"
-
-# ================================
-# SHARED EXTENSIONS
-# ================================
-mkdir -p "$EXT_DIR"
-chown -R root:root "$EXT_DIR"
-chmod 755 "$EXT_DIR"
 
 # ================================
 # CONFIG (ROOT CONTROLLED)
@@ -93,12 +88,20 @@ mkdir -p "$BLOCKER_DIR"
 
 cat > "$BLOCKER_BIN" <<'EOF'
 #!/bin/bash
-echo "❌ This command is disabled in this environment."
+echo "❌ This command is disabled in this development environment."
 exit 1
 EOF
 
 chmod 755 "$BLOCKER_BIN"
 chown root:root "$BLOCKER_BIN"
+
+# ================================
+# BLOCK GIT FOR THIS USER ONLY
+# ================================
+# GIT_BIN="$(which git)"
+# if [[ -f "$GIT_BIN" ]]; then
+#   setfacl -m u:"$USERNAME":--- "$GIT_BIN"
+# fi
 
 # ================================
 # SYSTEMD SERVICE
@@ -117,6 +120,7 @@ Group=$USERNAME
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict
+ProtectHome=read-only
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
 ProtectControlGroups=yes
@@ -125,16 +129,13 @@ RestrictNamespaces=yes
 RestrictSUIDSGID=yes
 LockPersonality=yes
 
-# ✅ USER HOME WRITE ACCESS
-ReadWritePaths=/home/$USERNAME
+# ✅ WRITE ACCESS
+ReadWritePaths=$PROJECTS_DIR $USER_DATA_DIR
 
-# 🔒 READ-ONLY USER FILES
-ReadOnlyPaths=/home/$USERNAME/.bashrc
-ReadOnlyPaths=/home/$USERNAME/.profile
-ReadOnlyPaths=/home/$USERNAME/.ssh
+# 🔒 SHARED EXTENSIONS
 ReadOnlyPaths=$EXT_DIR
 
-# 🚫 BLOCK NETWORK & TOOLS
+# 🚫 BLOCK NETWORK / DANGEROUS BINARIES
 BindPaths=$BLOCKER_BIN:/usr/bin/curl
 BindPaths=$BLOCKER_BIN:/usr/bin/wget
 BindPaths=$BLOCKER_BIN:/usr/bin/scp
@@ -153,14 +154,25 @@ BindPaths=$BLOCKER_BIN:/usr/bin/umount
 BindPaths=$BLOCKER_BIN:/usr/bin/su
 BindPaths=$BLOCKER_BIN:/usr/bin/chown
 
-# 🚫 FULL GIT BLOCK
+# 🚫 FULL GIT BLOCK (CLI + VS CODE EXTENSION)
 BindPaths=$BLOCKER_BIN:/usr/bin/git
 BindPaths=$BLOCKER_BIN:/usr/lib/git-core/git
+BindPaths=$BLOCKER_BIN:/usr/lib/git-core/git-remote-http
+BindPaths=$BLOCKER_BIN:/usr/lib/git-core/git-remote-https
+BindPaths=$BLOCKER_BIN:/usr/lib/git-core/git-upload-pack
+BindPaths=$BLOCKER_BIN:/usr/lib/git-core/git-receive-pack
+BindPaths=$BLOCKER_BIN:/usr/lib/git-core/git-fetch-pack
+BindPaths=$BLOCKER_BIN:/usr/lib/git-core/git-index-pack
+BindPaths=$BLOCKER_BIN:/usr/lib/git-core/git-pack-objects
 
+# 🚫 DISABLE VS CODE GIT EXTENSION
 Environment=VSCODE_DISABLE_GIT=1
 Environment=GIT_EXEC_PATH=/nonexistent
 Environment=GIT_CEILING_DIRECTORIES=/
 
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# 🚀 START
 ExecStart=/usr/bin/code-server \
   --user-data-dir=$USER_DATA_DIR \
   $PROJECTS_DIR
@@ -183,5 +195,5 @@ systemctl restart "code-server@$USERNAME"
 
 echo "✅ code-server running for $USERNAME on port $PORT"
 echo "📁 Workspace: $PROJECTS_DIR"
-echo "🔐 Home writable, shell + SSH read-only"
-echo "🚫 Git & network blocked"
+echo "🚫 Git fully blocked (terminal + VS Code Git extension)"
+echo "🔐 Network & dangerous binaries blocked for this service"
